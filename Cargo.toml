@@ -1,0 +1,20 @@
+[package]
+
+authors = ["Piotr Trzpil"]
+name = "eth-block-streamer"
+version = "0.1.0"
+
+[[bin]]
+name = "eth-block-streamer"
+
+[dependencies]
+futures = "0.1"
+tokio-core = "0.1"
+hyper = "*"
+rust-ini = "*"
+libc = "0.2.29"
+nix = "0.9.0"
+ansi_term = "0.9"
+serde_json = "1.0"
+timer = "*"
+chrono = "*"
