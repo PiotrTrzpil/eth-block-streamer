@@ -55,10 +55,10 @@ impl Checker {
         }
     }
 
-    fn run(&mut self) {
+    fn request_block(&mut self) -> Result<Value, String> {
 
         let json = r#"{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["latest", true],"id":1}"#;
-        let uri = RPC_ENDPOINT.parse().expect("Invalid url");
+        let uri: hyper::Uri = RPC_ENDPOINT.parse().unwrap(); //.map_err(|e| e.to_string())?;
         let mut req = Request::new(Method::Post, uri);
         req.headers_mut().set(ContentType::json());
         req.set_body(json);
@@ -68,12 +68,16 @@ impl Checker {
             res.body().concat2()
         });
 
+        let block = self.core.run(post).map_err(|e| e.to_string())?;
 
-        let block = self.core.run(post).unwrap();
+        let result_json = str::from_utf8(&block).map_err(|e| e.to_string())?;
 
-        let result_json = str::from_utf8(&block).unwrap();
+        let res: Value = serde_json::from_str(result_json).map_err(|e| e.to_string())?;
+        Ok(res)
+    }
 
-        let res: Value = serde_json::from_str(result_json).unwrap();
+    fn run(&mut self) -> Result<(), String>  {
+        let res = self.request_block()?;
 
         let result = res["result"].as_object().unwrap();
         let size = &result["size"];
@@ -87,7 +91,7 @@ impl Checker {
         let new_hash = result["hash"].as_str().unwrap();
         let new_h_st: String = new_hash.into();
         if self.last_hash == new_h_st {
-            return;
+            return Ok(());
         }
         self.last_hash = new_h_st;
 
@@ -107,6 +111,7 @@ impl Checker {
         }
         println!("Sum of value: {} ETH", sum/1000);
         println!("Waiting for new block...");
+        Ok(())
     }
 }
 
@@ -123,7 +128,6 @@ fn main() {
 
     loop {
         rx.recv().unwrap();
-
-        checker.run();
+        checker.run().unwrap();
     }
 }
