@@ -1,5 +1,6 @@
 [package]
 
+edition = "2018"
 authors = ["Piotr Trzpil"]
 name = "eth-block-streamer"
 version = "0.1.0"
@@ -8,7 +9,8 @@ version = "0.1.0"
 name = "eth-block-streamer"
 
 [dependencies]
-futures = "0.1"
+futures = "0.3.8"
+tokio = {"version"= "0.2", features=["rt-threaded", "macros"]}
 tokio-core = "0.1"
 hyper = "*"
 rust-ini = "*"
