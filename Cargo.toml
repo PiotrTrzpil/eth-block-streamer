@@ -13,6 +13,7 @@ futures = "0.3.8"
 tokio = {"version"= "0.2", features=["rt-threaded", "macros"]}
 tokio-core = "0.1"
 hyper = "*"
+hyper-tls = "*"
 rust-ini = "*"
 libc = "0.2.29"
 nix = "0.9.0"

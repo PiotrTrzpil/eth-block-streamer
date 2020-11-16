@@ -12,7 +12,7 @@ extern crate chrono;
 
 use timer::Timer;
 use chrono::Duration;
-use std::thread;
+use std::{thread, env};
 use serde_json::{Value, Error};
 use std::str::FromStr;
 use ansi_term::Colour::Red;
@@ -29,18 +29,21 @@ use hyper::Body;
 use std::sync::mpsc::channel;
 use std::future::Future;
 use tokio::prelude::*;
-
-static RPC_ENDPOINT: &str = "http://localhost:8545";
+use hyper_tls::HttpsConnector;
+use hyper::client::HttpConnector;
 
 struct Checker {
-    client: Client<hyper::client::HttpConnector, Body>,
+    endpoint: String,
+    client: Client<HttpsConnector<HttpConnector>, Body>,
     last_hash: String,
 }
 
 impl Checker {
-    fn new() -> Checker {
-        let client = Client::new();
+    fn new(endpoint: String) -> Checker {
+        let https = HttpsConnector::new();
+        let client = Client::builder().build(https);
         Checker {
+            endpoint,
             client,
             last_hash: "".into(),
         }
@@ -48,7 +51,7 @@ impl Checker {
 
     async fn request_block(&mut self) -> Result<Value, MyError> {
         let json: &str = r#"{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["latest", true],"id":1}"#;
-        let uri: hyper::Uri = RPC_ENDPOINT.parse().unwrap();
+        let uri: hyper::Uri = self.endpoint.parse().unwrap();
         let req: Request<Body> = Request::builder()
             .method(Method::POST)
             .uri(uri)
@@ -97,28 +100,38 @@ impl Checker {
             sum = sum + finney;
         }
         println!("Sum of value: {} ETH", sum / 1000);
-        println!("Waiting for new block...");
+        println!("Waiting for a new block...");
         Ok(())
     }
 }
 
 #[tokio::main]
 async fn main() {
-    let mut checker = Checker::new();
-    let (tx, rx) = channel();
+    let endpoint = env::var("ETH_NODE_ENDPOINT");
+    match endpoint {
+        Ok(value) => {
+            let mut checker = Checker::new(value);
+            let (tx, rx) = channel();
 
-    let timer = Timer::new();
-    let _guard = timer.schedule_repeating(Duration::seconds(1), move || {
-        let _ignored = tx.send(());
-    });
+            let timer = Timer::new();
+            let _guard = timer.schedule_repeating(Duration::seconds(1), move || {
+                let _ignored = tx.send(());
+            });
 
-    loop {
-        rx.recv().unwrap();
-        let result = checker.run().await;
-        if result.is_err() {
-            println!("error={:?}", result);
+            println!("Listening for blocks...");
+            loop {
+                rx.recv().unwrap();
+                let result = checker.run().await;
+                if result.is_err() {
+                    println!("error={:?}", result);
+                }
+            }
+        }
+        Err(_) => {
+            println!("Please set env variable ETH_NODE_ENDPOINT to a valid HTTPS eth node url, e.g. https://eth-mainnet.alchemyapi.io/v2/...");
         }
     }
+
 }
 
 #[derive(Debug)]
